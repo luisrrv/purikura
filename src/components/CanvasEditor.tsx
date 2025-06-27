@@ -1,7 +1,7 @@
 import { useRef, useState, useEffect } from 'react';
 import { useCanvasEngine } from '../hooks/useCanvasEngine';
 import { CameraCaptureModal } from './CameraCaptureModal';
-import { FaFileImage, FaTrash, FaSave, FaPen, FaMousePointer } from 'react-icons/fa';
+import { FaFileImage, FaStickyNote, FaTrash, FaSave, FaPen, FaMousePointer } from 'react-icons/fa';
 
 export function CanvasEditor() {
     const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -15,8 +15,11 @@ export function CanvasEditor() {
     const [brushColor, setBrushColor] = useState('#000000');
     const [brushSize, setBrushSize] = useState(3);
     const [backgroundImage, setBackgroundImage] = useState<string | null>(null);
-    // const [showImageOptions, setShowImageOptions] = useState(false);
     const [showCameraModal, setShowCameraModal] = useState(false);
+    const [isDraggingSticker, setIsDraggingSticker] = useState(false);
+    const [lastPointerPos, setLastPointerPos] = useState<{ x: number, y: number } | null>(null);
+    const [showStickerPicker, setShowStickerPicker] = useState(false);
+    const stickerList = ['😀', '😍', '👍', '🔥', '🐱', '🌟', '🎉'];
 
     useEffect(() => {
         const resizeCanvas = () => {
@@ -31,7 +34,7 @@ export function CanvasEditor() {
                 canvasRef.current.style.width = `${width}px`;
                 canvasRef.current.style.height = `${height}px`;
                 if (backgroundImage) {
-                    engine?.drawImage(backgroundImage);
+                    engine?.setBackgroundImage(backgroundImage);
                 } else {
                     engine?.clearCanvas();
                 }
@@ -48,7 +51,7 @@ export function CanvasEditor() {
             canvasRef.current.width = canvasSize.width;
             canvasRef.current.height = canvasSize.height;
             engine.initialize();
-            if (backgroundImage) engine.drawImage(backgroundImage);
+            if (backgroundImage) engine.setBackgroundImage(backgroundImage);
         }
     }, [canvasSize, engine, backgroundImage]);
 
@@ -61,22 +64,43 @@ export function CanvasEditor() {
     };
 
     const handleDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
-        if (!drawMode) return;
         const pos = getPointerPos(e);
+
+        if (!drawMode) {
+            const selected = engine?.selectStickerAt(pos.x, pos.y);
+            if (selected) {
+                setIsDraggingSticker(true);
+                setLastPointerPos(pos);
+            }
+            return;
+        }
+
         setIsDrawing(true);
         setLastPoint(pos);
     };
 
     const handleMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
-        if (!drawMode || !isDrawing || !lastPoint || !engine) return;
-        const newPos = getPointerPos(e);
-        engine.drawLine(lastPoint.x, lastPoint.y, newPos.x, newPos.y, brushColor, brushSize);
-        setLastPoint(newPos);
+        const pos = getPointerPos(e);
+
+        if (!drawMode && isDraggingSticker && lastPointerPos) {
+            const dx = pos.x - lastPointerPos.x;
+            const dy = pos.y - lastPointerPos.y;
+            engine?.moveSelectedSticker(dx, dy);
+            setLastPointerPos(pos);
+            return;
+        }
+
+        if (drawMode && isDrawing && lastPoint && engine) {
+            engine.drawLine(lastPoint.x, lastPoint.y, pos.x, pos.y, brushColor, brushSize);
+            setLastPoint(pos);
+        }
     };
 
     const handleUp = () => {
         setIsDrawing(false);
         setLastPoint(null);
+        setIsDraggingSticker(false);
+        setLastPointerPos(null);
     };
 
     const handleButtonClick = () => {
@@ -91,7 +115,7 @@ export function CanvasEditor() {
             const imgSrc = reader.result as string;
             setBackgroundImage(imgSrc);
             engine?.clearCanvas();
-            engine?.drawImage(imgSrc);
+            engine?.setBackgroundImage(imgSrc);
         };
         reader.readAsDataURL(file);
     };
@@ -99,11 +123,27 @@ export function CanvasEditor() {
     const handleCaptureFromCamera = (dataUrl: string) => {
         setBackgroundImage(dataUrl);
         engine?.clearCanvas();
-        engine?.drawImage(dataUrl);
+        engine?.setBackgroundImage(dataUrl);
         setShowCameraModal(false);
     };
 
-    // const isWebcamSupported = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+    const addEmojiSticker = (emoji: string) => {
+        const size = 64;
+        const canvas = document.createElement('canvas');
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext('2d')!;
+        ctx.font = '48px serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(emoji, size / 2, size / 2);
+
+        const img = new Image();
+        img.onload = () => {
+            engine?.addSticker(img.src, canvasSize.width / 2 - size / 2, canvasSize.height / 2 - size / 2, size, size);
+        };
+        img.src = canvas.toDataURL();
+    };
 
     return (
         <div className="w-full h-full flex flex-col">
@@ -116,7 +156,7 @@ export function CanvasEditor() {
                     {/* Mode tabs */}
                     <div className="flex rounded overflow-hidden">
                         <button
-                            className={`px-3 py-2 flex items-center gap-1 text-sm ${!drawMode ? 'bg-gray-700 text-white' : 'bg-gray-100 text-gray-800'
+                            className={`px-3 py-2 flex items-center gap-1 text-sm ${!drawMode ? 'bg-gray-300 text-gray-800' : 'bg-gray-100 text-gray-800'
                                 }`}
                             onClick={() => setDrawMode(false)}
                         >
@@ -124,7 +164,7 @@ export function CanvasEditor() {
                             Select
                         </button>
                         <button
-                            className={`px-3 py-2 flex items-center gap-1 text-sm ${drawMode ? 'bg-gray-700 text-white' : 'bg-gray-100 text-gray-800'
+                            className={`px-3 py-2 flex items-center gap-1 text-sm ${drawMode ? 'bg-gray-300 text-gray-800' : 'bg-gray-100 text-gray-800'
                                 }`}
                             onClick={() => setDrawMode(true)}
                         >
@@ -133,18 +173,46 @@ export function CanvasEditor() {
                         </button>
                     </div>
 
+                    <button
+                        className="px-3 py-2 text-sm bg-green-600 text-white rounded inline-flex items-center gap-2"
+                        onClick={() => setShowStickerPicker(prev => !prev)}
+                    >
+                        <FaStickyNote />
+                        Sticker
+                    </button>
+
+                    {showStickerPicker && (
+                        <div
+                            className="absolute z-10 mt-2 bg-white shadow border rounded p-2 w-64 grid grid-cols-5 gap-2"
+                            style={{ left: '50%', transform: 'translateX(-50%)', top: '42px' }}
+                        >
+                            {stickerList.map((emoji, idx) => (
+                                <button
+                                    key={idx}
+                                    className="text-2xl hover:scale-110 transition"
+                                    onClick={() => {
+                                        addEmojiSticker(emoji);
+                                        setShowStickerPicker(false);
+                                    }}
+                                >
+                                    {emoji}
+                                </button>
+                            ))}
+                        </div>
+                    )}
+
                     {/* Image dropdown or remove button */}
                     <div className="relative">
                         {backgroundImage ? (
                             <button
-                                className="px-3 py-2 text-sm bg-gray-500 text-white rounded inline-flex items-center gap-2"
+                                className="px-3 py-2 text-sm bg-red-100 text-red-800 rounded inline-flex items-center gap-2"
                                 onClick={() => {
                                     setBackgroundImage(null);
                                     engine?.clearCanvas();
                                 }}
                             >
                                 <FaTrash />
-                                Remove Image
+                                Image
                             </button>
                         ) : (
                             <>
@@ -153,54 +221,18 @@ export function CanvasEditor() {
                                     onClick={handleButtonClick}
                                 >
                                     <FaFileImage />
-                                    Add Image
+                                    Image
                                     <input
-                                    ref={fileInputRef}
-                                    type="file"
-                                    accept="image/*"
-                                    className="hidden"
-                                    onChange={(e) => {
-                                        // setShowImageOptions(false);
-                                        handleImageUpload(e);
-                                    }}
+                                        ref={fileInputRef}
+                                        type="file"
+                                        accept="image/*"
+                                        className="hidden"
+                                        onChange={(e) => {
+                                            // setShowImageOptions(false);
+                                            handleImageUpload(e);
+                                        }}
                                     />
                                 </button>
-
-                                {/* {showImageOptions && (
-                                    <div className="absolute z-10 mt-2 bg-white shadow border rounded text-sm p-2 flex flex-col gap-2 w-48">
-                                        <label className="cursor-pointer flex items-center gap-2 hover:bg-gray-100 px-2 py-2 rounded">
-                                            <FaFileUpload />
-                                            Upload from Files
-                                            <input
-                                                type="file"
-                                                accept="image/*"
-                                                className="hidden"
-                                                onChange={(e) => {
-                                                    setShowImageOptions(false);
-                                                    handleImageUpload(e);
-                                                }}
-                                            />
-                                        </label>
-
-                                        {isWebcamSupported ? (
-                                            <button
-                                                onClick={() => {
-                                                    setShowCameraModal(true);
-                                                    setShowImageOptions(false);
-                                                }}
-                                                className="flex items-center gap-2 hover:bg-gray-100 px-2 py-2 rounded"
-                                            >
-                                                <FaCamera />
-                                                Take with Camera
-                                            </button>
-                                        ) : (
-                                            <div className="flex items-center gap-2 px-2 py-2 rounded opacity-50">
-                                                <FaCamera />
-                                                Camera Unavailable
-                                            </div>
-                                        )}
-                                    </div>
-                                )} */}
                             </>
                         )}
                     </div>
@@ -208,7 +240,7 @@ export function CanvasEditor() {
 
                 {/* Save Button */}
                 <button
-                    className="px-3 py-2 bg-gray-700 text-white text-sm rounded flex items-center gap-2"
+                    className="px-3 py-2 bg-gray-800 text-white text-sm rounded flex items-center gap-2"
                     onClick={() => {
                         if (!canvasRef.current) return;
                         const link = document.createElement('a');
@@ -246,7 +278,7 @@ export function CanvasEditor() {
                     </label>
 
                     <button
-                        className="px-2 py-2 text-sm bg-red-500 text-white rounded"
+                        className="px-2 py-2 text-sm bg-red-100 text-red-800 rounded"
                         onClick={() => engine?.clearDrawingsOnly()}
                     >
                         Clear
