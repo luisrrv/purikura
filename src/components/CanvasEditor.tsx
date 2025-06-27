@@ -1,11 +1,12 @@
 import { useRef, useState, useEffect } from 'react';
 import { useCanvasEngine } from '../hooks/useCanvasEngine';
 import { CameraCaptureModal } from './CameraCaptureModal';
-import { FaCamera, FaFileUpload, FaTrash, FaSave, FaPen, FaMousePointer } from 'react-icons/fa';
+import { FaFileImage, FaTrash, FaSave, FaPen, FaMousePointer } from 'react-icons/fa';
 
 export function CanvasEditor() {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const engine = useCanvasEngine(canvasRef);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
     const [isDrawing, setIsDrawing] = useState(false);
@@ -14,7 +15,7 @@ export function CanvasEditor() {
     const [brushColor, setBrushColor] = useState('#000000');
     const [brushSize, setBrushSize] = useState(3);
     const [backgroundImage, setBackgroundImage] = useState<string | null>(null);
-    const [showImageOptions, setShowImageOptions] = useState(false);
+    // const [showImageOptions, setShowImageOptions] = useState(false);
     const [showCameraModal, setShowCameraModal] = useState(false);
 
     useEffect(() => {
@@ -78,6 +79,10 @@ export function CanvasEditor() {
         setLastPoint(null);
     };
 
+    const handleButtonClick = () => {
+        fileInputRef.current?.click();
+    };
+
     const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
@@ -98,7 +103,7 @@ export function CanvasEditor() {
         setShowCameraModal(false);
     };
 
-    const isWebcamSupported = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+    // const isWebcamSupported = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
 
     return (
         <div className="w-full h-full flex flex-col">
@@ -145,13 +150,23 @@ export function CanvasEditor() {
                             <>
                                 <button
                                     className="px-3 py-2 text-sm bg-blue-500 text-white rounded inline-flex items-center gap-2"
-                                    onClick={() => setShowImageOptions(prev => !prev)}
+                                    onClick={handleButtonClick}
                                 >
-                                    <FaFileUpload />
-                                    Add Photo
+                                    <FaFileImage />
+                                    Add Image
+                                    <input
+                                    ref={fileInputRef}
+                                    type="file"
+                                    accept="image/*"
+                                    className="hidden"
+                                    onChange={(e) => {
+                                        // setShowImageOptions(false);
+                                        handleImageUpload(e);
+                                    }}
+                                    />
                                 </button>
 
-                                {showImageOptions && (
+                                {/* {showImageOptions && (
                                     <div className="absolute z-10 mt-2 bg-white shadow border rounded text-sm p-2 flex flex-col gap-2 w-48">
                                         <label className="cursor-pointer flex items-center gap-2 hover:bg-gray-100 px-2 py-2 rounded">
                                             <FaFileUpload />
@@ -185,7 +200,7 @@ export function CanvasEditor() {
                                             </div>
                                         )}
                                     </div>
-                                )}
+                                )} */}
                             </>
                         )}
                     </div>
