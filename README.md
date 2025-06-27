@@ -22,4 +22,3 @@
 
 Try the live demo here: [https://purikura-evo.netlify.app](https://purikura-evo.netlify.app)
 
-## Project Structure
