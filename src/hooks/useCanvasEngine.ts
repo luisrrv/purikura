@@ -1,14 +1,15 @@
 import { useEffect, useState } from 'react';
+import type { RefObject } from 'react';
 import { CanvasEngine } from '../canvas/CanvasEngine';
 
-export function useCanvasEngine(ref: React.RefObject<HTMLCanvasElement | null>) {
+export function useCanvasEngine(ref: RefObject<HTMLCanvasElement | null>) {
     const [engine, setEngine] = useState<CanvasEngine | null>(null);
 
     useEffect(() => {
-        if (ref.current && !engine) {
-            setEngine(new CanvasEngine(ref.current));
+        if (ref.current) {
+            const e = new CanvasEngine(ref.current);
+            setEngine(e);
         }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [ref]);
 
     return engine;

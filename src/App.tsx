@@ -4,9 +4,9 @@ function App() {
   return (
     <div className="w-screen h-screen overflow-hidden bg-gray-100 flex flex-col">
       {/* Header */}
-      <header className="h-16 flex items-center justify-center bg-white shadow">
+      {/* <header className="h-16 flex items-center justify-center bg-white shadow">
         <h1 className="text-xl font-bold">Purikura EVO</h1>
-      </header>
+      </header> */}
 
       {/* Canvas */}
       <main className="flex-1">

@@ -1,30 +1,58 @@
 export class CanvasEngine {
-    private ctx: CanvasRenderingContext2D;
     private canvas: HTMLCanvasElement;
+    private ctx: CanvasRenderingContext2D | null = null;
+    private backgroundImage: HTMLImageElement | null = null;
 
     constructor(canvas: HTMLCanvasElement) {
         this.canvas = canvas;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) throw new Error("Could not get 2D context");
-        this.ctx = ctx;
+        this.ctx = canvas.getContext('2d');
     }
 
     initialize() {
-        this.clearCanvas();
+        if (this.canvas && this.ctx) {
+            this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+            if (this.backgroundImage) {
+                this.ctx.drawImage(this.backgroundImage, 0, 0, this.canvas.width, this.canvas.height);
+            }
+        }
+    }
+
+    drawLine(x1: number, y1: number, x2: number, y2: number, color: string, size: number) {
+        if (!this.ctx) return;
+        this.ctx.strokeStyle = color;
+        this.ctx.lineWidth = size;
+        this.ctx.lineCap = 'round';
+        this.ctx.beginPath();
+        this.ctx.moveTo(x1, y1);
+        this.ctx.lineTo(x2, y2);
+        this.ctx.stroke();
+    }
+
+    drawImage(imageSrc: string) {
+        if (!this.canvas || !this.ctx) return;
+        const img = new Image();
+        img.onload = () => {
+            this.backgroundImage = img;
+            this.ctx?.drawImage(img, 0, 0, this.canvas!.width, this.canvas!.height);
+        };
+        img.src = imageSrc;
     }
 
     clearCanvas() {
+        if (!this.ctx || !this.canvas) return;
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        this.backgroundImage = null;
     }
 
-    drawLine(fromX: number, fromY: number, toX: number, toY: number, color = 'black', width = 3) {
-        this.ctx.strokeStyle = color;
-        this.ctx.lineWidth = width;
-        this.ctx.lineCap = 'round';
+    clearDrawingsOnly() {
+        if (!this.canvas || !this.ctx) return;
 
-        this.ctx.beginPath();
-        this.ctx.moveTo(fromX, fromY);
-        this.ctx.lineTo(toX, toY);
-        this.ctx.stroke();
+        // Clear everything
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+
+        // Redraw the background image if exists
+        if (this.backgroundImage) {
+            this.ctx.drawImage(this.backgroundImage, 0, 0, this.canvas.width, this.canvas.height);
+        }
     }
 }
