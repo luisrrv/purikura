@@ -5,16 +5,28 @@ type Sticker = {
     y: number;
     width: number;
     height: number;
-    isSelected?: boolean;
 };
+
+type Mode = 'draw' | 'select';
+
+interface ExportStrategy {
+    export(canvas: HTMLCanvasElement): void;
+}
 
 export class CanvasEngine {
     private canvas: HTMLCanvasElement;
     private ctx: CanvasRenderingContext2D | null = null;
 
+    // State: current tool mode
+    private mode: Mode = 'draw';
+
+    // Observer: listeners
+    private listeners = new Set<() => void>();
+
+    // Drawing storage
     private drawings: { x1: number; y1: number; x2: number; y2: number; color: string; size: number }[] = [];
 
-    // Background image and positioning/scale for contain fit + dragging
+    // Background image + positioning
     private backgroundImage: HTMLImageElement | null = null;
     private bgImageX = 0;
     private bgImageY = 0;
@@ -26,8 +38,8 @@ export class CanvasEngine {
     private stickers: Sticker[] = [];
     private selectedStickerId: string | null = null;
 
-    // Drawing state tracking
-    // private lastDrawPoint: { x: number; y: number } | null = null;
+    // Strategy placeholder for export (no implementation)
+    private exportStrategy?: ExportStrategy;
 
     constructor(canvas: HTMLCanvasElement) {
         this.canvas = canvas;
@@ -39,12 +51,34 @@ export class CanvasEngine {
         if (this.backgroundImage) {
             this.drawBackgroundImage();
         }
+        this.drawUserDrawings();
         this.drawStickers();
+        this.notify();
     }
 
-    // Freehand drawing line
+    // Observer: subscribe to changes
+    onChange(callback: () => void) {
+        this.listeners.add(callback);
+    }
+    offChange(callback: () => void) {
+        this.listeners.delete(callback);
+    }
+    private notify() {
+        this.listeners.forEach((fn) => fn());
+    }
+
+    // State: change current mode
+    setMode(mode: Mode) {
+        this.mode = mode;
+        this.notify();
+    }
+    getMode(): Mode {
+        return this.mode;
+    }
+
+    // Drawing methods
     drawLine(x1: number, y1: number, x2: number, y2: number, color: string, size: number) {
-        if (!this.ctx) return;
+        if (!this.ctx || this.mode !== 'draw') return;
         this.ctx.strokeStyle = color;
         this.ctx.lineWidth = size;
         this.ctx.lineCap = 'round';
@@ -53,10 +87,9 @@ export class CanvasEngine {
         this.ctx.lineTo(x2, y2);
         this.ctx.stroke();
 
-        // Store the stroke for redraw
         this.drawings.push({ x1, y1, x2, y2, color, size });
+        this.notify();
     }
-
     private drawUserDrawings() {
         if (!this.ctx) return;
         for (const d of this.drawings) {
@@ -70,7 +103,7 @@ export class CanvasEngine {
         }
     }
 
-    // Load and set background image, fit contained
+    // Background image (set, fit, draw)
     setBackgroundImage(imageSrc: string) {
         if (!this.ctx) return;
         const img = new Image();
@@ -78,10 +111,10 @@ export class CanvasEngine {
             this.backgroundImage = img;
             this.calculateBgImageFit();
             this.draw();
+            this.notify();
         };
         img.src = imageSrc;
     }
-
     private calculateBgImageFit() {
         if (!this.backgroundImage) return;
         const canvasW = this.canvas.width;
@@ -93,11 +126,9 @@ export class CanvasEngine {
         const scaleY = canvasH / imgH;
         this.bgImageScale = Math.min(scaleX, scaleY);
 
-        // Center image
         this.bgImageX = (canvasW - imgW * this.bgImageScale) / 2;
         this.bgImageY = (canvasH - imgH * this.bgImageScale) / 2;
     }
-
     private drawBackgroundImage() {
         if (!this.ctx || !this.backgroundImage) return;
         this.ctx.drawImage(
@@ -105,43 +136,39 @@ export class CanvasEngine {
             this.bgImageX,
             this.bgImageY,
             this.backgroundImage.width * this.bgImageScale,
-            this.backgroundImage.height * this.bgImageScale
+            this.backgroundImage.height * this.bgImageScale,
         );
     }
 
-    // Stickers
+    // Factory: sticker creation encapsulated here
+    private createSticker(imageSrc: string, x: number, y: number, width: number, height: number): Sticker {
+        const id = Math.random().toString(36).substr(2, 9);
+        const img = new Image();
+        img.src = imageSrc;
+        return { id, img, x, y, width, height };
+    }
 
     addSticker(imageSrc: string, x: number, y: number, width: number, height: number) {
-        const img = new Image();
-        img.onload = () => {
-            const id = Math.random().toString(36).substr(2, 9);
-            this.stickers.push({ id, img, x, y, width, height });
+        const sticker = this.createSticker(imageSrc, x, y, width, height);
+        sticker.img.onload = () => {
+            this.stickers.push(sticker);
             this.draw();
+            this.notify();
         };
-        img.src = imageSrc;
     }
 
     drawStickers() {
         if (!this.ctx) return;
         for (const sticker of this.stickers) {
             this.ctx.drawImage(sticker.img, sticker.x, sticker.y, sticker.width, sticker.height);
-            // if (sticker.isSelected) {
-            //     this.ctx.strokeStyle = 'blue';
-            //     this.ctx.lineWidth = 2;
-            //     this.ctx.strokeRect(sticker.x, sticker.y, sticker.width, sticker.height);
-            // }
+            // No border on selection for now
         }
     }
 
-    // Draw full canvas
     draw() {
         if (!this.ctx || !this.canvas) return;
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-
-        if (this.backgroundImage) {
-            this.drawBackgroundImage();
-        }
-
+        if (this.backgroundImage) this.drawBackgroundImage();
         this.drawUserDrawings();
         this.drawStickers();
     }
@@ -152,56 +179,53 @@ export class CanvasEngine {
         this.backgroundImage = null;
         this.stickers = [];
         this.selectedStickerId = null;
+        this.drawings = [];
+        this.notify();
     }
 
     clearDrawingsOnly() {
         this.drawings = [];
         this.draw();
+        this.notify();
     }
 
-    // Background image dragging
-
+    // Background image dragging methods (only update internal state here)
     isBgImageHit(pos: { x: number; y: number }) {
         if (!this.backgroundImage) return false;
         const w = this.backgroundImage.width * this.bgImageScale;
         const h = this.backgroundImage.height * this.bgImageScale;
         return pos.x >= this.bgImageX && pos.x <= this.bgImageX + w && pos.y >= this.bgImageY && pos.y <= this.bgImageY + h;
     }
-
     startDraggingBgImage(pos: { x: number; y: number }) {
         this.bgDragOffset.x = pos.x - this.bgImageX;
         this.bgDragOffset.y = pos.y - this.bgImageY;
         this.isDraggingBgImage = true;
     }
-
     dragBgImageTo(pos: { x: number; y: number }) {
         if (!this.isDraggingBgImage) return;
         this.bgImageX = pos.x - this.bgDragOffset.x;
         this.bgImageY = pos.y - this.bgDragOffset.y;
     }
-
     stopDraggingBgImage() {
         this.isDraggingBgImage = false;
     }
 
-    // Stickers selection and moving
-
+    // Stickers selection and movement
     selectStickerAt(x: number, y: number) {
         for (let i = this.stickers.length - 1; i >= 0; i--) {
             const s = this.stickers[i];
             if (x >= s.x && x <= s.x + s.width && y >= s.y && y <= s.y + s.height) {
                 this.selectedStickerId = s.id;
-                this.stickers.forEach(st => (st.isSelected = st.id === s.id));
                 this.draw();
+                this.notify();
                 return s;
             }
         }
         this.selectedStickerId = null;
-        this.stickers.forEach(st => (st.isSelected = false));
         this.draw();
+        this.notify();
         return null;
     }
-
     moveSelectedSticker(dx: number, dy: number) {
         if (!this.selectedStickerId) return;
         const sticker = this.stickers.find(s => s.id === this.selectedStickerId);
@@ -209,7 +233,15 @@ export class CanvasEngine {
         sticker.x += dx;
         sticker.y += dy;
         this.draw();
+        this.notify();
     }
 
-    // Optional: methods for resizing/removing stickers can be added here
+    // Export strategy setter (no implementation, just placeholder)
+    setExportStrategy(strategy: ExportStrategy) {
+        this.exportStrategy = strategy;
+    }
+    export() {
+        if (!this.exportStrategy) throw new Error('No export strategy set');
+        this.exportStrategy.export(this.canvas);
+    }
 }
