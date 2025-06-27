@@ -154,7 +154,7 @@ export function CanvasEditor() {
                 {/* Left controls */}
                 <div className="flex gap-2 items-center flex-wrap">
                     {/* Mode tabs */}
-                    <div className="flex rounded overflow-hidden">
+                    <div className="flex rounded-md overflow-hidden">
                         <button
                             className={`px-3 py-2 flex items-center gap-1 text-sm ${!drawMode ? 'bg-gray-300 text-gray-800' : 'bg-gray-100 text-gray-800'}`}
                             onClick={() => setDrawMode(false)}
@@ -172,7 +172,7 @@ export function CanvasEditor() {
                     </div>
 
                     <button
-                        className="px-3 py-2 text-sm bg-green-600 text-white rounded inline-flex items-center gap-2"
+                        className="px-3 py-2 text-sm bg-green-600 text-white rounded-md inline-flex items-center gap-2"
                         onClick={() => setShowStickerPicker(prev => !prev)}
                     >
                         <FaStickyNote />
@@ -181,7 +181,7 @@ export function CanvasEditor() {
 
                     {showStickerPicker && (
                         <div
-                            className="absolute z-10 mt-2 bg-white shadow border rounded p-2 w-64 grid grid-cols-5 gap-2"
+                            className="absolute z-10 mt-2 bg-white shadow border rounded-md p-2 w-64 grid grid-cols-5 gap-2"
                             style={{ left: '50%', transform: 'translateX(-50%)', top: '42px' }}
                         >
                             {STICKER_EMOJIS.map((emoji, idx) => (
@@ -200,7 +200,7 @@ export function CanvasEditor() {
                     <div className="relative">
                         {backgroundImage ? (
                             <button
-                                className="px-3 py-2 text-sm bg-red-100 text-red-800 rounded inline-flex items-center gap-2"
+                                className="px-3 py-2 text-sm bg-red-100 text-red-800 rounded-md inline-flex items-center gap-2"
                                 onClick={() => {
                                     setBackgroundImage(null);
                                     engine?.clearCanvas();
@@ -211,7 +211,7 @@ export function CanvasEditor() {
                             </button>
                         ) : (
                             <button
-                                className="px-3 py-2 text-sm bg-blue-500 text-white rounded inline-flex items-center gap-2"
+                                className="px-3 py-2 text-sm bg-blue-500 text-white rounded-md inline-flex items-center gap-2"
                                 onClick={openFilePicker}
                             >
                                 <FaFileImage />
@@ -230,7 +230,7 @@ export function CanvasEditor() {
 
                 {/* Save button */}
                 <button
-                    className="px-3 py-2 bg-gray-800 text-white text-sm rounded flex items-center gap-2"
+                    className="px-3 py-2 bg-gray-800 text-white text-sm rounded-md flex items-center gap-2"
                     onClick={() => {
                         if (!canvasRef.current) return;
                         const link = document.createElement('a');
@@ -268,7 +268,7 @@ export function CanvasEditor() {
                     </label>
 
                     <button
-                        className="px-2 py-2 text-sm bg-red-100 text-red-800 rounded"
+                        className="px-2 py-2 text-sm bg-red-100 text-red-800 rounded-md"
                         onClick={() => engine?.clearDrawingsOnly()}
                     >
                         Clear
@@ -279,7 +279,7 @@ export function CanvasEditor() {
             {/* Canvas */}
             <canvas
                 ref={canvasRef}
-                className="bg-white touch-none border border-gray-300 rounded-md mx-auto my-3"
+                className="bg-white touch-none border border-gray-300 rounded-md-md mx-auto my-3"
                 width={canvasSize.width}
                 height={canvasSize.height}
                 onPointerDown={handleDown}

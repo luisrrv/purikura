@@ -1,3 +1,8 @@
+// THIS FILE IS PART OF THE CANVAS ENGINE LIBRARY
+// It provides the core functionality for drawing, managing stickers, and handling background images.
+// 
+// THIS SHOULD BE SPLIT INTO MULTIPLE FILES ACCORDIGNLY INTO COMMANDS AND TOOLS FOLDERS
+
 type Sticker = {
     id: string;
     img: HTMLImageElement;
